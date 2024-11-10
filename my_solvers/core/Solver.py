@@ -19,14 +19,12 @@ class Solver(ABC):
                   max_iter: int = 2e2   , 
                   tol: float      = 1e-5  ,
                   info: bool      = False ,
-                  step: float     = 1e-3  ,
-                  step_adpt: bool = False ) -> None:
+                  step: float     = 1e-3  ) -> None:
         
         self._max_iter  = max_iter
         self._tol       = tol
         self._info      = info
         self._step      = step
-        self._step_adpt = step_adpt
 
     # =================================== #
     # Public methods
