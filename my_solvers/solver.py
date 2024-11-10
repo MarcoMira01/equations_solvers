@@ -1,40 +1,94 @@
 from abc import ABC, abstractmethod
+from typing import Callable 
 
 class Solver(ABC):
     
-    # ======================= #
+    # =================================== #
     # Protected attributes
-    # ======================= #
-    # _max_iterations              # max number of iterations
-    # _tolerance                   # tolerance value for the solution
-    # _output_info                 # boolean: switch on/off additional info in output
-    # _solver_step                 # step used by the solver for computing the solution
-    # _step_variation              # boolean: switch on/off automatic step variation
+    # =================================== #
+    # _max_iter              # max number of iterations
+    # _tol                   # tolerance value for the solution
+    # _info                  # boolean: switch on/off additional info in output
+    # _step                  # step used by the solver for computing the solution
+    # _step_adpt             # boolean: switch on/off automatic step variation
 
-    # ======================= #
+    # =================================== #
     # Constructor
-    # ======================= #
+    # =================================== #
     def __init__( self , 
-                  max_iter: float = 2e2   , 
+                  max_iter: int = 2e2   , 
                   tol: float      = 1e-5  ,
                   info: bool      = False ,
                   step: float     = 1e-3  ,
                   step_adpt: bool = False ) -> None:
         
-        self._max_iterations = max_iter
-        self._tolerance      = tol
-        self._output_info    = info
-        self._solver_step    = step
-        self._step_variation = step_adpt
+        self._max_iter  = max_iter
+        self._tol       = tol
+        self._info      = info
+        self._step      = step
+        self._step_adpt = step_adpt
 
-    # ======================= #
+    # =================================== #
     # Public methods
-    # ======================= #
+    # =================================== #
+    # ====================== #
     # Set methods
-    @abstractmethod
-    def set_max_iterations(self, max_iter) ->None:
-        """ Set the maximum number of iterations (or function evaluetions)
+    # ====================== #
+    def set_max_iter( self , max_iter: int ) ->None:
+        """ Set the maximum number of iterations (or function evaluations)
             that the solver can perform to find a solution """
+        self._max_iterations = max_iter
+    
+    def set_tolerance( self , tol: float ) ->None:
+        """ Set the tolerance value for considering a value as zero 
+            of the system """
+        self._tol = tol
+
+    def set_out_info( self , info: bool ) -> None:
+        """ Enable/disable the output of additional information at the end
+            of the procedure """
+        self._info = info
+
+    def set_solver_step( self , step: float ) -> None:
+        """ Set the step that the solver uses to calculate the roots """
+        self._step = step
+
+    @abstractmethod
+    def set_step_adaptability( self , step_adpt: bool ) -> None:
+        """ Enable/disable auto-update of solver step """
         raise NotImplementedError
     
+    # ====================== #
+    # Get methods
+    # ====================== #
+    def get_max_iter( self , max_iter: int ) ->None:
+        """ Get the maximum number of iterations (or function evaluations)
+            that the solver can perform to find a solution """
+        return self._max_iter
     
+    def get_tolerance( self , tol: float ) ->None:
+        """ Get the tolerance value for considering a value as zero 
+            of the system """
+        return self._tol
+
+    def get_out_info( self , info: bool ) -> None:
+        """ Get if the output of additional information at the end
+            of the procedure is switched on/off """
+        return self._info
+
+    def get_solver_step( self , step: float ) -> None:
+        """ Get the step that the solver uses to calculate the roots """
+        return self._step
+
+    @abstractmethod
+    def get_step_adaptability( self , step_adpt: bool ) -> None:
+        """ Get if auto-update of solver step is stiched on or off """
+        raise NotImplementedError
+    
+    # ====================== #
+    # Get methods
+    # ====================== #
+    @abstractmethod
+    def solve( self , fcn_hndl: Callable , X0: float ):
+        """ Compute the root of the function passed in input starting from initial point X0 """
+        raise NotImplementedError
