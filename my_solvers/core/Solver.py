@@ -61,32 +61,32 @@ class Solver(ABC):
     # ====================== #
     # Get methods
     # ====================== #
-    def get_max_iter( self , max_iter: int ) ->None:
+    def get_max_iter( self ) ->None:
         """ Get the maximum number of iterations (or function evaluations)
             that the solver can perform to find a solution """
         return self._max_iter
     
-    def get_tolerance( self , tol: float ) ->None:
+    def get_tolerance( self ) ->None:
         """ Get the tolerance value for considering a value as zero 
             of the system """
         return self._tol
 
-    def get_out_info( self , info: bool ) -> None:
+    def get_out_info( self ) -> None:
         """ Get if the output of additional information at the end
             of the procedure is switched on/off """
         return self._info
 
-    def get_solver_step( self , step: float ) -> None:
+    def get_solver_step( self ) -> None:
         """ Get the step that the solver uses to calculate the roots """
         return self._step
 
     @abstractmethod
-    def get_step_adaptability( self , step_adpt: bool ) -> None:
+    def get_step_adaptability( self ) -> None:
         """ Get if auto-update of solver step is stiched on or off """
         raise NotImplementedError
     
     # ====================== #
-    # Get methods
+    # Solver implementation
     # ====================== #
     @abstractmethod
     def solve( self , fcn_hndl: Callable , X0: float ):
