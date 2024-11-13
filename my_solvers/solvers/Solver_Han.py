@@ -12,11 +12,16 @@ class Solver_Han( Solver ):
     # Constructor
     # =================================== #
     def __init__( self , 
-                step_adpt: bool = False , 
-                e: float = 2e-2 ) -> None:
+                  max_iter: int = 2e2     , 
+                  tol: float      = 1e-5  ,
+                  info: bool      = False ,
+                  step: float     = 1e-3  ,
+                  step_adpt: bool = False , 
+                  e: float = 0.5 ) -> None:
         
         # Parent constructor
-        super().__init__()
+        super().__init__( max_iter = max_iter , tol = tol , 
+                          info = info , step = step )
 
         # Additional settings
         self.__step_adpt = step_adpt
@@ -45,33 +50,42 @@ class Solver_Han( Solver ):
             return X
         
     def __solver_fixed_step( self , fcn_hndl: Callable , X0: float ):
+        # 0) Define local parameters for easy of reading
+        h = self._step
+        e = self.__eps
 
         # 1) Compute parameter omega
-        w = self._step/( self._step + self.__eps )
+        w = h/( h + e )
 
         # 2) Evaluate function at starting point X0
         #    and compute ancillary variable z0
-        fX = fcn_hndl( X0 )
-        Z  = w*fX
+        Z0  = h*fcn_hndl( X0 )
 
         # 3) Compute new point x amd evaluate function
-        X   = X0 - Z
-        fX  = fcn_hndl( X )
-        rho = norm( fX )
+        # NOTE: Xn1 = X_(n+1)
+        Xn1_0  = X0 - Z0
+        rho = norm( fcn_hndl( Xn1_0 ) )
 
         # 4) Start the iterative computation
-        i = 1
-        while ( i <= self._max_iter ) and ( rho > self._tol ):
-            
-            Znew = w*( self.__eps*fcn_hndl( X ) + Z )
-            Xnew = X-Znew
+        Zn = Z0
+        Xn = X0
+        for i in range(3):
+            n = 0
+            while ( n < self._max_iter ) and ( rho > self._tol ):
+                
+                Zn1 = w*( e*fcn_hndl( Xn1_0 ) + Zn )
+                Xn1 = Xn - Zn1
 
-            i   = i+1
-            X   = Xnew - Znew
-            fX  = fcn_hndl( X )
-            rho = norm( fX )
+                n     = n+1
+                Xn    = Xn1
+                Zn    = Zn1
+                Xn1_0 = Xn - Zn
+                rho = norm( fcn_hndl(Xn1_0) )
 
-        if ( i >= self._max_iter ):
-            print("Solver stopped since max number of iterations reached")
+            h = h*2
+            w = h/( h + e )
 
-        return X
+            if ( n >= self._max_iter ):
+                print("Solver stopped since max number of iterations reached")
+
+        return Xn1_0
