@@ -2,9 +2,12 @@
 # sys.path.append('../core/')
 
 from my_solvers.core.Solver import Solver
-from typing       import Callable
-from numpy        import array
-from numpy.linalg import norm
+from typing                 import Callable
+from numpy.linalg           import norm
+from numpy                  import isscalar
+from multipledispatch       import dispatch
+from typing                 import overload
+from multimethods import multimethod
 
 class Solver_Han( Solver ):
 
@@ -16,7 +19,7 @@ class Solver_Han( Solver ):
                   tol: float      = 1e-5  ,
                   info: bool      = False ,
                   step: float     = 1e-3  ,
-                  step_adpt: bool = False , 
+                  step_adpt: bool = False ,
                   e: float = 0.5 ) -> None:
         
         # Parent constructor
@@ -50,16 +53,21 @@ class Solver_Han( Solver ):
             return X
         
     def __solver_fixed_step( self , fcn_hndl: Callable , X0: float ):
+
         # 0) Define local parameters for easy of reading
-        h = self._step
+        # h = self._step
+        if isscalar(self._step):
+            h = [ self._step , 2*self._step , 4*self._step ]
+        else:
+            h = self._step
         e = self.__eps
 
         # 1) Compute parameter omega
-        w = h/( h + e )
+        w = h[0]/( h[0] + e )
 
         # 2) Evaluate function at starting point X0
         #    and compute ancillary variable z0
-        Z0  = h*fcn_hndl( X0 )
+        Z0  = h[0]*fcn_hndl( X0 )
 
         # 3) Compute new point x amd evaluate function
         # NOTE: Xn1 = X_(n+1)
@@ -82,8 +90,8 @@ class Solver_Han( Solver ):
                 Xn1_0 = Xn - Zn
                 rho = norm( fcn_hndl(Xn1_0) )
 
-            h = h*2
-            w = h/( h + e )
+            h[i] = h[i]*2
+            w = h[i]/( h[i] + e )
 
             if ( n >= self._max_iter ):
                 print("Solver stopped since max number of iterations reached")
