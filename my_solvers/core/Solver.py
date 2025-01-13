@@ -80,7 +80,7 @@ class Solver(ABC):
 
     @abstractmethod
     def get_step_adaptability( self ) -> None:
-        """ Get if auto-update of solver step is stiched on or off """
+        """ Get if auto-update of solver step is switched on or off """
         raise NotImplementedError
     
     # ====================== #
