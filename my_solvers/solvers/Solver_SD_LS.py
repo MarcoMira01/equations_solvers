@@ -54,7 +54,23 @@ class Solver_SD_LS( Solver ):
     # =========================== #
     # Solver implementation
     # =========================== #
-    def solve( self , A: float , b: float , X0: float ):
+    def solve( self , A: float , b: float , X0: float , method: str = "lin_search" ):
+        match method:
+            case "lin_search":
+                X = self.__solve_ELS( A , b , X0 )
+            case "conj_grad":
+                X = self.__solve_CG( A , b , X0 )
+
+            # If an exact match is not confirmed, this last case will be used if provided
+            case _:
+                X = self.__solve_ELS( self , A , b , X0 )
+        
+        return X
+
+    # =========================== #
+    # Exact linear seach
+    # =========================== #
+    def __solve_ELS( self , A: float , b: float , X0: float ):
         # Check input consistency for a correct calculation of steepest descent
         self.__matrix_consistency( A , b , X0 )
 
@@ -92,8 +108,50 @@ class Solver_SD_LS( Solver ):
         return X
     
     # =========================== #
-    # Line search step-size update
+    # Conjugate gradient method
     # =========================== #
+    def __solve_CG( self , A: float , b: float , X0: float ):
+        # Check input consistency for a correct calculation of steepest descent
+        self.__matrix_consistency( A , b , X0 )
+
+        # Steepest descent implementation
+        i      = 0                               # index initialization
+        res    = b - A.dot(X0)                   # initial residual
+        p0     = res                             # first conjugate direction
+        num    = (res.T).dot(res)                # the num of steplength update is equal to the norm-2 of residual
+        den    = ((p0.T).dot(A)).dot(p0)         # first time is equivalent to resT*A*res
+                     
+        X      = X0
+        p      = res
+        delta0 = num
+
+        # Main iteration: 
+        # stop when ||res||^2 < tol*||res_0||^2 -> norm2 of residual < fraction of initial residual
+        # OR 
+        # max iter number reached
+        while (num > self._tol*delta0) and (i < self._max_iter):
+            # Update the step length alpha
+            alpha = num/den
+
+            # Update solution
+            X = X + alpha*p
+
+            res_new = res - alpha*(A.dot(p))
+            
+            num_beta = (res_new.T).dot(res_new)
+            den_beta = (res.T).dot(res)
+            beta     = num_beta/den_beta
+            
+            # Update the rest
+            num = (res.T).dot(res)
+            den = ((res.T).dot(A)).dot(res)
+            p   = res_new + beta*p
+
+            res = res_new
+
+            i = i+1
+
+        return X
     
 
     # =========================== #
