@@ -6,8 +6,6 @@
 # import sys
 # sys.path.append('../core/')
 
-# TEST BB commit
-
 from my_solvers.core.Solver import Solver
 from typing                 import Callable
 from numpy.linalg           import norm, eigvals
@@ -63,7 +61,9 @@ class Solver_SD_LS( Solver ):
             case "conj_grad":
                 X = self.__solve_CG( A , b , X0 )
             case "back_track_iter":
-                X = self.__solve_BT_iter( A , b , X0 , beta )
+                X = self.__solve_BT( A , b , X0 , beta )
+            case "barzilai_borwein":
+                X = self.__solve_BB( A , b , X0 )
 
             # If an exact match is not confirmed, this last case will be used if provided
             case _:
@@ -158,9 +158,9 @@ class Solver_SD_LS( Solver ):
         return X
     
     # =========================== #
-    # Backtracking method (simple)
+    # Backtracking method
     # =========================== #
-    def __solve_BT_iter( self , A: float , b: float , X0: float , beta: float ):
+    def __solve_BT( self , A: float , b: float , X0: float , beta: float ):
         # Check input consistency for a correct calculation of steepest descent
         self.__matrix_consistency( A , b , X0 )
 
@@ -207,8 +207,53 @@ class Solver_SD_LS( Solver ):
             p = b - A.dot(X)
             X = X + alpha*p
 
+            res    = b - A.dot(X)         
+            res_sqr = (res.T).dot(res)
+
             i = i+1
 
+        return X
+    
+    # =========================== #
+    # Barzilai-Borwein method
+    # =========================== #
+    def __solve_BB( self , A: float , b: float , X0: float ):
+        # Check input consistency for a correct calculation of steepest descent
+        self.__matrix_consistency( A , b , X0 )
+
+        # First step: gradient method
+        # Steepest descent implementation
+        i      = 0                               # index initialization
+        res    = b - A.dot(X0)                   # initial residual
+        num    = (res.T).dot(res)                # the num of steplength update is equal to the norm-2 of residual
+        den    = ((res.T).dot(A)).dot(res)
+        delta0 = num    
+
+        i       = 1
+        alpha   = num/den
+        X_prev  = X0
+        X       = X0 + alpha*res
+        res     = b - A.dot(X)
+        res_sqr = (res.T).dot(res)
+
+        # Main iteration:
+        while (res_sqr > self._tol*delta0) and (i < self._max_iter):
+            
+            delta_X = X - X_prev
+            delta_g = A.dot( X - X_prev ) 
+
+            if (i % 2) == 0:
+                alpha = ((delta_X.T).dot(delta_g))/((delta_g.T).dot(delta_g))
+            else:
+                alpha = ((delta_X.T).dot(delta_X))/((delta_X.T).dot(delta_g))
+
+            X_prev  = X
+            X       = X_prev + alpha*res
+            res     = b - A.dot(X)
+            res_sqr = (res.T).dot(res)
+
+            i = i+1
+        
         return X
 
     # =========================== #
