@@ -54,12 +54,14 @@ class Solver_SD_LS( Solver ):
     # =========================== #
     # Solver implementation
     # =========================== #
-    def solve( self , A: float , b: float , X0: float , method: str = "lin_search" ):
+    def solve( self , A: float , b: float , X0: float , method: str = "lin_search" , beta:float = 5e-2 ):
         match method:
             case "lin_search":
                 X = self.__solve_ELS( A , b , X0 )
             case "conj_grad":
                 X = self.__solve_CG( A , b , X0 )
+            case "back_track_iter":
+                X = self.__solve_BT_iter( A , b , X0 , beta )
 
             # If an exact match is not confirmed, this last case will be used if provided
             case _:
@@ -153,6 +155,59 @@ class Solver_SD_LS( Solver ):
 
         return X
     
+    # =========================== #
+    # Backtracking method (simple)
+    # =========================== #
+    def __solve_BT_iter( self , A: float , b: float , X0: float , beta: float ):
+        # Check input consistency for a correct calculation of steepest descent
+        self.__matrix_consistency( A , b , X0 )
+
+        # Steepest descent implementation
+        i      = 0                               # index initialization
+        res    = b - A.dot(X0)                   # initial residual
+
+        res_sqr = (res.T).dot(res)
+        delta0  = res_sqr
+        
+        X = X0
+
+        while (res_sqr > self._tol*delta0) and (i < self._max_iter):
+            
+            alpha = 1
+
+            # Computation of right side term for while entry condition
+            f_grad = A.dot(X) - b
+            f_grad_sqr = (f_grad.T).dot(f_grad)
+            f_X = 0.5*((X.T).dot(A)).dot(X) - (b.T).dot(X)
+            right_term = f_X - (alpha/2)*f_grad_sqr
+
+            # Computation of left side term for while entry condition
+            X_temp = X - alpha*f_grad
+            f_X_temp = 0.5*((X_temp.T).dot(A)).dot(X_temp) - (b.T).dot(X_temp)
+            left_term = f_X_temp
+
+            # Iterative backtracking
+            while (left_term > right_term):
+                # Update alpha
+                alpha = beta*alpha
+
+                # Computation of right side term for while entry condition
+                f_grad = A.dot(X) - b
+                f_grad_sqr = (f_grad.T).dot(f_grad)
+                f_X = 0.5*((X.T).dot(A)).dot(X) - (b.T).dot(X)
+                right_term = f_X - (alpha/2)*f_grad_sqr
+
+                # Computation of left side term for while entry condition
+                X_temp = X - alpha*f_grad
+                f_X_temp = 0.5*((X_temp.T).dot(A)).dot(X_temp) - (b.T).dot(X_temp)
+                left_term = f_X_temp
+
+            p = b - A.dot(X)
+            X = X + alpha*p
+
+            i = i+1
+
+        return X
 
     # =========================== #
     # Matrix consistency
@@ -179,4 +234,3 @@ class Solver_SD_LS( Solver ):
         # Check dimension mismatch between matrix and vectors
         if (nrA != nb) or (nrA != nX) or (nb != nX):
             raise SystemExit('Error: dimension mismatch between A,b, and x')
-        
