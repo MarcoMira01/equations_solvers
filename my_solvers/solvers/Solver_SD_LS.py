@@ -27,15 +27,11 @@ class Solver_SD_LS( Solver ):
                   max_iter: int   = 2e2   , 
                   tol:      float = 1e-5  ,
                   info:     bool  = False ,
-                  step:     float = 1e-3  ,
-                  res_upd:  int   = 50  ) -> None:
+                  step:     float = 1e-3   ) -> None:
         
         # Parent constructor
         super().__init__( max_iter = max_iter , tol = tol , 
                           info = info , step = step )
-        
-        # Additional settings
-        self.__residual_update = res_upd   
 
     # =========================== #
     # Set methods
@@ -54,207 +50,152 @@ class Solver_SD_LS( Solver ):
     # =========================== #
     # Solver implementation
     # =========================== #
-    def solve( self , A: float , b: float , X0: float , method: str = "lin_search" , beta:float = 5e-2 ):
-        match method:
-            case "lin_search":
-                X = self.__solve_ELS( A , b , X0 )
-            case "conj_grad":
-                X = self.__solve_CG( A , b , X0 )
-            case "back_track_iter":
-                X = self.__solve_BT( A , b , X0 , beta )
-            case "barzilai_borwein":
-                X = self.__solve_BB( A , b , X0 )
+    def solve( self , A: float , b: float , X0: float , method: str = "lin_search" , BT_factor:float = 5e-2 , res_upd: int = 50 ):
+        # Check input consistency for a correct calculation of steepest descent
+        self.__matrix_consistency( A , b , X0 )
 
-            # If an exact match is not confirmed, this last case will be used if provided
-            case _:
-                X = self.__solve_ELS( self , A , b , X0 )
+        # Initialization at step 0
+        X_im1     = X0
+        res_im1   = b - A.dot(X_im1)
+        res_sqr_0 = (res_im1.T).dot(res_im1)
+        res_sqr   = res_sqr_0
+        p_im1     = res_im1
+
+        i = 1        
+
+        # Main iteration: 
+        # stop when ||res||^2 < tol*||res_0||^2 -> norm2 of residual < fraction of initial residual
+        # OR 
+        # max iter number reached
+        while (res_sqr > self._tol*res_sqr_0) and (i < self._max_iter):
         
-        return X
+            match method:
+                case "lin_search":
+                    if (i % res_upd == 0):  # use expression to reduce numerical errors accumulation
+                        res_im1 = b - A.dot(X_im1)
+                    alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                    descent = res_im1
+
+                case "conj_grad":                    
+                    alpha_i , res_i , p_i = self.__solve_CG( A , res_im1  , p_im1 )
+                    descent = p_im1
+                    p_im1   = p_i
+
+                case "back_track_iter":
+                    alpha_i , res_i = self.__solve_BT( A , b , X_im1 , BT_factor )
+                    descent = res_im1
+
+                case "barzilai_borwein":
+                    if (i == 1):
+                        alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                        X_im2 = X_im1
+                    else: 
+                        alpha_i , res_i = self.__solve_BB( A , b , X_im1 , X_im2, i )
+                        X_im2 = X_im1
+                    descent = res_i
+
+                # If an exact match is not confirmed, this last case will be used if provided
+                case _:
+                    raise SystemExit('Error: not expected solver method')
+
+            res_sqr = (res_i.T).dot(res_i)
+
+            X_i     = X_im1 + alpha_i*descent
+            X_im1   = X_i
+            res_im1 = res_i
+
+            i = i+1            
+
+        return X_i
 
     # =========================== #
     # Exact linear seach
     # =========================== #
-    def __solve_ELS( self , A: float , b: float , X0: float ):
-        # Check input consistency for a correct calculation of steepest descent
-        self.__matrix_consistency( A , b , X0 )
+    def __solve_ELS( self , A: float , res: float ):
 
-        # Steepest descent implementation
-        i      = 0                               # index initialization
-        res    = b - A.dot(X0)                   # initial residual
-        num    = (res.T).dot(res)                # the num of steplength update is equal to the norm-2 of residual
-        den    = ((res.T).dot(A)).dot(res)
-        delta0 = num                            
-        X      = X0
+        # Compute step alpha
+        num   = (res.T).dot(res)
+        den   = (res.T).dot(A.dot(res))
+        alpha = num/den
 
-        # Main iteration: 
-        # stop when ||res||^2 < tol*||res_0||^2 -> norm2 of residual < fraction of initial residual
-        # OR 
-        # max iter number reached
-        while (num > self._tol*delta0) and (i < self._max_iter):
-            # Update the step length alpha
-            alpha = num/den
+        # Update residual
+        res_new = res - alpha*(A.dot(res))
 
-            # Update solution
-            X = X + alpha*res
-
-            # Update residual
-            if (i % self.__residual_update == 0):  # use expression to reduce numerical errors accumulation
-                res = b - A.dot(X)
-            else:
-                res = res - alpha*(A.dot(res))
-            
-            # Update the rest
-            num = (res.T).dot(res)
-            den = ((res.T).dot(A)).dot(res)
-
-            i = i+1
-
-        return X
+        return alpha, res_new
     
     # =========================== #
     # Conjugate gradient method
     # =========================== #
-    def __solve_CG( self , A: float , b: float , X0: float ):
-        # Check input consistency for a correct calculation of steepest descent
-        self.__matrix_consistency( A , b , X0 )
+    def __solve_CG( self , A: float , res: float , p: float ):
 
-        # Steepest descent implementation
-        i      = 0                               # index initialization
-        res    = b - A.dot(X0)                   # initial residual
-        p0     = res                             # first conjugate direction
-        num    = (res.T).dot(res)                # the num of steplength update is equal to the norm-2 of residual
-        den    = ((p0.T).dot(A)).dot(p0)         # first time is equivalent to resT*A*res
-                     
-        X      = X0
-        p      = res
-        delta0 = num
+        # Compute step alpha
+        num   = (res.T).dot(res)
+        den   = (p.T).dot(A.dot(p))
+        alpha = num/den
 
-        # Main iteration: 
-        # stop when ||res||^2 < tol*||res_0||^2 -> norm2 of residual < fraction of initial residual
-        # OR 
-        # max iter number reached
-        while (num > self._tol*delta0) and (i < self._max_iter):
-            # Update the step length alpha
-            alpha = num/den
+        # Update residual
+        res_new = res - alpha*A.dot(p)
 
-            # Update solution
-            X = X + alpha*p
-
-            res_new = res - alpha*(A.dot(p))
-            
-            num_beta = (res_new.T).dot(res_new)
-            den_beta = (res.T).dot(res)
-            beta     = num_beta/den_beta
-            
-            # Update the rest
-            num = (res.T).dot(res)
-            den = ((res.T).dot(A)).dot(res)
-            p   = res_new + beta*p
-
-            res = res_new
-
-            i = i+1
-
-        return X
+        # Update p
+        num  = (res_new.T).dot(res_new)
+        den  = (res.T).dot(res)
+        beta = num/den 
+        p_new = res_new + beta*p
+        
+        return alpha , res_new , p_new    
     
     # =========================== #
     # Backtracking method
     # =========================== #
-    def __solve_BT( self , A: float , b: float , X0: float , beta: float ):
-        # Check input consistency for a correct calculation of steepest descent
-        self.__matrix_consistency( A , b , X0 )
-
-        # Steepest descent implementation
-        i      = 0                               # index initialization
-        res    = b - A.dot(X0)                   # initial residual
-
-        res_sqr = (res.T).dot(res)
-        delta0  = res_sqr
-        
-        X = X0
-
-        while (res_sqr > self._tol*delta0) and (i < self._max_iter):
+    def __solve_BT( self , A: float , b: float , X: float , scaling: float ):
             
-            alpha = 1
+        alpha = 1
+        entry = 1
+        k     = 1
 
-            # Computation of right side term for while entry condition
+        # Iterative backtracking
+        while (entry == 1):
+
             f_grad = A.dot(X) - b
+            X_temp = X - alpha*f_grad
+
+            # Computation of right side term for while entry condition                
             f_grad_sqr = (f_grad.T).dot(f_grad)
             f_X = 0.5*((X.T).dot(A)).dot(X) - (b.T).dot(X)
             right_term = f_X - (alpha/2)*f_grad_sqr
 
-            # Computation of left side term for while entry condition
-            X_temp = X - alpha*f_grad
+            # Computation of left side term for while entry condition                
             f_X_temp = 0.5*((X_temp.T).dot(A)).dot(X_temp) - (b.T).dot(X_temp)
             left_term = f_X_temp
 
-            # Iterative backtracking
-            while (left_term > right_term):
+            if (left_term > right_term):
                 # Update alpha
-                alpha = beta*alpha
+                alpha = scaling*alpha
+            else:
+                entry = 0
 
-                # Computation of right side term for while entry condition
-                f_grad = A.dot(X) - b
-                f_grad_sqr = (f_grad.T).dot(f_grad)
-                f_X = 0.5*((X.T).dot(A)).dot(X) - (b.T).dot(X)
-                right_term = f_X - (alpha/2)*f_grad_sqr
+            k = k+1
 
-                # Computation of left side term for while entry condition
-                X_temp = X - alpha*f_grad
-                f_X_temp = 0.5*((X_temp.T).dot(A)).dot(X_temp) - (b.T).dot(X_temp)
-                left_term = f_X_temp
+        res = b - A.dot(X)
 
-            p = b - A.dot(X)
-            X = X + alpha*p
-
-            res    = b - A.dot(X)         
-            res_sqr = (res.T).dot(res)
-
-            i = i+1
-
-        return X
+        return alpha , res
     
     # =========================== #
     # Barzilai-Borwein method
     # =========================== #
-    def __solve_BB( self , A: float , b: float , X0: float ):
-        # Check input consistency for a correct calculation of steepest descent
-        self.__matrix_consistency( A , b , X0 )
-
-        # First step: gradient method
-        # Steepest descent implementation
-        i      = 0                               # index initialization
-        res    = b - A.dot(X0)                   # initial residual
-        num    = (res.T).dot(res)                # the num of steplength update is equal to the norm-2 of residual
-        den    = ((res.T).dot(A)).dot(res)
-        delta0 = num    
-
-        i       = 1
-        alpha   = num/den
-        X_prev  = X0
-        X       = X0 + alpha*res
-        res     = b - A.dot(X)
-        res_sqr = (res.T).dot(res)
-
-        # Main iteration:
-        while (res_sqr > self._tol*delta0) and (i < self._max_iter):
+    def __solve_BB( self , A: float , b: float , X_im1: float , X_im2: float , i: int ):
             
-            delta_X = X - X_prev
-            delta_g = A.dot( X - X_prev ) 
+        delta_X = X_im1 - X_im2
+        delta_g = A.dot( delta_X )
 
-            if (i % 2) == 0:
-                alpha = ((delta_X.T).dot(delta_g))/((delta_g.T).dot(delta_g))
-            else:
-                alpha = ((delta_X.T).dot(delta_X))/((delta_X.T).dot(delta_g))
+        if (i % 2) == 0:
+            alpha = ((delta_X.T).dot(delta_g))/((delta_g.T).dot(delta_g))
+        else:
+            alpha = ((delta_X.T).dot(delta_X))/((delta_X.T).dot(delta_g))
 
-            X_prev  = X
-            X       = X_prev + alpha*res
-            res     = b - A.dot(X)
-            res_sqr = (res.T).dot(res)
-
-            i = i+1
+        res = b - A.dot(X_im1)
         
-        return X
+        return alpha , res
 
     # =========================== #
     # Matrix consistency
