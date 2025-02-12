@@ -85,13 +85,38 @@ class Solver_SD_LS( Solver ):
                     alpha_i , res_i = self.__solve_BT( A , b , X_im1 , BT_factor )
                     descent = res_im1
 
-                case "barzilai_borwein":
-                    if (i == 1):
+                case "barzilai_borwein_short":
+                    if (i > 1):
+                        alpha_i , res_i = self.__solve_BB_short( A , b , X_im1 , X_im2 )
+                        X_im2 = X_im1
+                    else:
+                        # First iteration
                         alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                        X_im2 = X_im1                        
+                    descent = res_i
+
+                case "barzilai_borwein_long":
+                    if (i > 1):
+                        alpha_i , res_i = self.__solve_BB_long( A , b , X_im1 , X_im2 )
                         X_im2 = X_im1
-                    else: 
-                        alpha_i , res_i = self.__solve_BB( A , b , X_im1 , X_im2, i )
+                    else:
+                        # First iteration
+                        alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                        X_im2 = X_im1                        
+                    descent = res_i
+
+                case "barzilai_borwein_alt":
+                    if (i > 1):
+                        # Alternate between short and long BB steps
+                        if (i % 2==0):
+                            alpha_i , res_i = self.__solve_BB_short( A , b , X_im1 , X_im2 )                            
+                        else:
+                            alpha_i , res_i = self.__solve_BB_long( A , b , X_im1 , X_im2 )
                         X_im2 = X_im1
+                    else:
+                        # First iteration
+                        alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                        X_im2 = X_im1                        
                     descent = res_i
 
                 # If an exact match is not confirmed, this last case will be used if provided
@@ -183,15 +208,25 @@ class Solver_SD_LS( Solver ):
     # =========================== #
     # Barzilai-Borwein method
     # =========================== #
-    def __solve_BB( self , A: float , b: float , X_im1: float , X_im2: float , i: int ):
+    # Short step
+    def __solve_BB_short( self , A: float , b: float , X_im1: float , X_im2: float ):
             
         delta_X = X_im1 - X_im2
         delta_g = A.dot( delta_X )
 
-        if (i % 2) == 0:
-            alpha = ((delta_X.T).dot(delta_g))/((delta_g.T).dot(delta_g))
-        else:
-            alpha = ((delta_X.T).dot(delta_X))/((delta_X.T).dot(delta_g))
+        alpha = ((delta_X.T).dot(delta_g))/((delta_g.T).dot(delta_g))
+        
+        res = b - A.dot(X_im1)
+        
+        return alpha , res
+    
+    # Long step
+    def __solve_BB_long( self , A: float , b: float , X_im1: float , X_im2: float ):
+            
+        delta_X = X_im1 - X_im2
+        delta_g = A.dot( delta_X )
+
+        alpha = ((delta_X.T).dot(delta_X))/((delta_X.T).dot(delta_g))
 
         res = b - A.dot(X_im1)
         
