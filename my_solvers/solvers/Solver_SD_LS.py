@@ -13,6 +13,7 @@ from numpy                  import isscalar
 from numpy                  import allclose
 from numpy                  import all
 from math                   import log
+from numpy                  import random
 
 # from multipledispatch       import dispatch
 # from typing                 import overload
@@ -53,6 +54,9 @@ class Solver_SD_LS( Solver ):
     def solve( self , A: float , b: float , X0: float , method: str = "lin_search" , BT_factor:float = 5e-2 , res_upd: int = 50 ):
         # Check input consistency for a correct calculation of steepest descent
         self.__matrix_consistency( A , b , X0 )
+
+        # Initialize random generator if random step size is selected
+        rng = random.default_rng() 
 
         # Initialization at step 0
         X_im1     = X0
@@ -118,6 +122,13 @@ class Solver_SD_LS( Solver ):
                         alpha_i , res_i = self.__solve_ELS( A , res_im1 )
                         X_im2 = X_im1                        
                     descent = res_i
+
+                case "random_step":  
+                    res_im1 = b - A.dot(X_im1)                            # Always overwrite the residual with exact calculation
+                    alpha_i , res_i = self.__solve_ELS( A , res_im1 )
+                    alpha_i = rng.uniform( low = 0 , high = 2 )*alpha_i   # Randomize the step
+                    res_i   = res_im1                                     # Overwrite the residual with the previous one for the exit condition
+                    descent = res_im1
 
                 # If an exact match is not confirmed, this last case will be used if provided
                 case _:
@@ -231,6 +242,25 @@ class Solver_SD_LS( Solver ):
         res = b - A.dot(X_im1)
         
         return alpha , res
+
+    # =========================== #
+    # Random step
+    # =========================== #
+    # def __solve_RandS( self , A: float , res: float ):
+        
+    #     rng = random.default_rng()
+    #     theta = rng.uniform( low = 0 , high = 2 )
+
+
+    #     # Compute step alpha
+    #     num   = (res.T).dot(res)
+    #     den   = (res.T).dot(A.dot(res))
+    #     alpha = theta*(num/den)
+
+    #     # Update residual
+    #     res_new = res - alpha*(A.dot(res))
+
+    #     return alpha, res_new
 
     # =========================== #
     # Matrix consistency
