@@ -27,26 +27,29 @@ class Solver_SD_LS( Solver ):
     def __init__( self , 
                   max_iter: int   = 2e2   , 
                   tol:      float = 1e-5  ,
-                  info:     bool  = False ,
-                  step:     float = 1e-3   ) -> None:
+                  info:     bool  = False  ) -> None:
         
         # Parent constructor
         super().__init__( max_iter = max_iter , tol = tol , 
-                          info = info , step = step )
+                          info = info )
+        
+        # Additional definitions
+        self.__step = 0           # here step is an internal variable automatically managed by the routine!
 
     # =========================== #
     # Set methods
     # =========================== #
-    # Override set step adaptability
-    def set_step_adaptability( self , step_adpt: bool ) -> None:
-        self.__step_adpt = step_adpt
+    # No additional (abstract) set methods to be implemented 
 
     # =========================== #
     # Get methods
     # =========================== #
+    def get_solver_step(self) -> float:
+        return self.__step
+
     # Override get step adaptability
-    def get_step_adaptability( self , step_adpt: bool ) -> None:
-        return self.__step_adpt
+    def get_step_adaptability( self , step_adpt: bool ) -> bool:
+        return True
     
     # =========================== #
     # Solver implementation
@@ -140,7 +143,9 @@ class Solver_SD_LS( Solver ):
             X_im1   = X_i
             res_im1 = res_i
 
-            i = i+1            
+            i = i+1  
+
+            self.__step = alpha_i        
 
         return X_i
 

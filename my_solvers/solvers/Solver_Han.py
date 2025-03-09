@@ -26,15 +26,19 @@ class Solver_Han( Solver ):
         
         # Parent constructor
         super().__init__( max_iter = max_iter , tol = tol , 
-                          info = info , step = step )
+                          info = info )
 
         # Additional settings
+        self.__step      = step
         self.__step_adpt = step_adpt
         self.__eps       = e
 
     # ====================== #
     # Set methods
     # ====================== #
+    def set_solver_step( self , step: float ) -> None:
+        self.__step = step
+
     # Override set step adaptability
     def set_step_adaptability( self , step_adpt: bool ) -> None:
         self.__step_adpt = step_adpt
@@ -42,8 +46,11 @@ class Solver_Han( Solver ):
     # ====================== #
     # Get methods
     # ====================== #
+    def get_solver_step( self ) -> float:
+        return self.__step
+
     # Override get step adaptability
-    def get_step_adaptability( self , step_adpt: bool ) -> None:
+    def get_step_adaptability( self ) -> bool:
         return self.__step_adpt
     
     # ====================== #
@@ -64,11 +71,11 @@ class Solver_Han( Solver ):
     def __solver_fixed_step( self , fcn_hndl: Callable , X0: float ):
 
         # 0) Define local parameters for easy of reading
-        # h = self._step
-        if isscalar(self._step):
-            h = [ self._step , 2*self._step , 4*self._step ]
+        # h = self.__step
+        if isscalar(self.__step):
+            h = [ self.__step , 2*self.__step , 4*self.__step ]
         else:
-            h = self._step
+            h = self.__step
         e = self.__eps
 
         # 1) Compute parameter omega
@@ -113,10 +120,10 @@ class Solver_Han( Solver ):
     def __solver_var_step( self , fcn_hndl: Callable , X0: float , step_max: float ):
         
         # 0) Define local parameters for easy of reading
-        if not isscalar(self._step):
-            h = self._step[0]
+        if not isscalar(self.__step):
+            h = self.__step[0]
         else:
-            h = self._step
+            h = self.__step
         h_max = step_max
         e = self.__eps
 

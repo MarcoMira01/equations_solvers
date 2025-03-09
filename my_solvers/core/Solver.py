@@ -16,15 +16,13 @@ class Solver(ABC):
     # Constructor
     # =================================== #
     def __init__( self , 
-                  max_iter: int = 2e2   , 
+                  max_iter: int = 2e2     , 
                   tol: float      = 1e-5  ,
-                  info: bool      = False ,
-                  step: float     = 1e-3  ) -> None:
+                  info: bool      = False  ) -> None:
         
         self._max_iter  = max_iter
         self._tol       = tol
-        self._info      = info
-        self._step      = step
+        self._info      = info        
 
     # =================================== #
     # Public methods
@@ -46,15 +44,6 @@ class Solver(ABC):
         """ Enable/disable the output of additional information at the end
             of the procedure """
         self._info = info
-
-    def set_solver_step( self , step: float ) -> None:
-        """ Set the step that the solver uses to calculate the roots """
-        self._step = step
-
-    @abstractmethod
-    def set_step_adaptability( self , step_adpt: bool ) -> None:
-        """ Enable/disable auto-update of solver step """
-        raise NotImplementedError
     
     # ====================== #
     # Get methods
@@ -74,9 +63,10 @@ class Solver(ABC):
             of the procedure is switched on/off """
         return self._info
 
+    @abstractmethod
     def get_solver_step( self ) -> None:
         """ Get the step that the solver uses to calculate the roots """
-        return self._step
+        return NotImplementedError
 
     @abstractmethod
     def get_step_adaptability( self ) -> None:
