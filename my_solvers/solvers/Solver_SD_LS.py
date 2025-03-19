@@ -7,12 +7,9 @@
 # sys.path.append('../core/')
 
 from my_solvers.core.Solver import Solver
-from typing                 import Callable
-from numpy.linalg           import norm, eigvals
-from numpy                  import isscalar
+from numpy.linalg           import eigvals
 from numpy                  import allclose
 from numpy                  import all
-from math                   import log
 from numpy                  import random
 
 # from multipledispatch       import dispatch
