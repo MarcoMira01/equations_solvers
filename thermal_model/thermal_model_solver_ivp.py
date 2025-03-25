@@ -5,15 +5,14 @@
 #
 # Different methods can be selected to change the computation strategy:
 #  - BE_linear: simulate the model via Backward Euler method integration
-#  - BE_linear_SD_LS: use of steepest descent algorithm with lin search step update
-
-# X_ls  = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "lin_search" )
-# X_cg  = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "conj_grad" )
-# X_bt  = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "back_track_iter" , BT_factor = 0.5 )
-# X_bbs = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "barzilai_borwein_short" )
-# X_bbl = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "barzilai_borwein_long" )
-# X_bba = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "barzilai_borwein_alt" )
-# X_rs  = sol.solve( (A.T).dot(A) , (A.T).dot(b) , X0 , method = "random_step" )
+#  - BE_linear_SD_xxx: use of steepest descent algorithm with xxx step update:
+#       - lin_search
+#       - conj_grad
+#       - back_track_iter
+#       - barzilai_borwein_short
+#       - barzilai_borwein_long
+#       - barzilai_borwein_alt
+#       - random_step
 
 import numpy as np
 from thermal_model.thermal_matrix_continuous import thermal_matrix_continuous
@@ -23,6 +22,8 @@ from my_solvers.solvers.Solver_SD_LS         import Solver_SD_LS
 def thermal_model_solver_ivp( t_span , Delta_t , T0 , Ta , qext , method ):
 
     sol = Solver_SD_LS( max_iter = 1e3 , tol = 1e-8 )
+
+    n_iter_avg = 0
 
     # Matrices of the linearized thermal model
     C, A_cnv, A_cnv_tld, A_cnd, A_rad, B_ext = thermal_matrix_continuous( )
@@ -55,12 +56,14 @@ def thermal_model_solver_ivp( t_span , Delta_t , T0 , Ta , qext , method ):
 
         if (method == 'BE_linear'):
             T_new = T + Delta_t*np.linalg.inv(A).dot(f_t)
+            n_iter_avg = n_iter_avg + 1
         else:
             b = Delta_t*f_t + A.dot(T)
-            T_new  = sol.solve( (A.T).dot(A) , (A.T).dot(b) , T , method = "lin_search" )
+            T_new = sol.solve( (A.T).dot(A) , (A.T).dot(b) , T , method = method )
+            n_iter_avg = n_iter_avg + sol.get_n_iter()/(len(sim_time)-1)
 
         T_sim[:,i] = T_new
 
         i = i+1
 
-    return sim_time , T_sim
+    return sim_time , T_sim , n_iter_avg
