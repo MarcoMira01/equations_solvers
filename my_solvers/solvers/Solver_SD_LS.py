@@ -32,6 +32,7 @@ class Solver_SD_LS( Solver ):
         
         # Additional definitions
         self.__step = 0           # here step is an internal variable automatically managed by the routine!
+        self.__n_iter = 0         # number of iterations to converge to the solution
 
     # =========================== #
     # Set methods
@@ -45,8 +46,11 @@ class Solver_SD_LS( Solver ):
         return self.__step
 
     # Override get step adaptability
-    def get_step_adaptability( self , step_adpt: bool ) -> bool:
+    def get_step_adaptability(self) -> bool:
         return True
+    
+    def get_n_iter(self) -> int:
+        return self.__n_iter
     
     # =========================== #
     # Solver implementation
@@ -142,7 +146,9 @@ class Solver_SD_LS( Solver ):
 
             i = i+1  
 
-            self.__step = alpha_i        
+            self.__step = alpha_i     
+
+        self.__n_iter = i   
 
         return X_i
 
